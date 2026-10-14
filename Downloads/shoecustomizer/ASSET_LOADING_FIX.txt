@@ -1,0 +1,25 @@
+# เวอร์ชันของการแก้ไขนี้ คือ 1.3.3 บิลด์ 7
+Version 1.3.3+7
+
+# สิ่งที่แก้: โหลดสคริปต์ตัววาดและตัวถอดรหัส Draco ด้วย rootBundle ของ Flutter (ดูเมธอด _loadPainterAssets ใน shoe_model_viewer.dart)
+Fix: load the painter bundle and Draco JS decoder with Flutter rootBundle.
+# ห้ามขอไฟล์ข้างเคียงจาก URL พร็อกซี /model ของ model_viewer_plus เพราะโหลดไม่ได้
+Do not request sibling assets from the model_viewer_plus /model proxy URL.
+# ชื่อไฟล์ assets/shoe_painter_v3_2.js คงเดิม แต่เนื้อหาข้างในถูกอัปเดต
+The filename assets/shoe_painter_v3_2.js is retained, but its contents are updated.
+
+# วิธีอัปเดต: ต้องแทนที่ไฟล์ต่อไปนี้พร้อมกัน
+Replace these together in the existing project:
+# ไฟล์ที่ 1: ตัวแสดงโมเดล 3D ฝั่ง Flutter
+lib/widgets/shoe_model_viewer.dart
+# ไฟล์ที่ 2: สคริปต์ตัววาด texture
+assets/shoe_painter_v3_2.js
+# ไฟล์ที่ 3: รายการ asset ของโปรเจกต์
+pubspec.yaml
+# ต้องเก็บไฟล์ assets/draco/draco_decoder.js ไว้ด้วย
+Keep assets/draco/draco_decoder.js present.
+
+# สิ่งที่ตรวจสอบแล้ว: ไวยากรณ์ JavaScript และการจำลอง bootstrap (ดู tools/check_bootstrap.cjs)
+Validation: JavaScript syntax and mocked /model bootstrap with queued/live commands.
+# ข้อจำกัด: ยังไม่ได้ทดสอบบน Android และไม่ได้รัน flutter analyze
+Not validated on Android or with flutter analyze in this environment.

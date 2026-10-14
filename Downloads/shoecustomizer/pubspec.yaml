@@ -1,0 +1,64 @@
+# ชื่อแพ็กเกจของแอป (ตัวพิมพ์เล็ก ไม่มีเว้นวรรค)
+name: shoecustomizer
+# คำอธิบายสั้น ๆ ของโปรเจกต์ (ยังเป็นค่าเริ่มต้นจากเทมเพลต)
+description: "A new Flutter project."
+# none แปลว่าห้ามเผยแพร่ขึ้น pub.dev (เป็นแอปส่วนตัว)
+publish_to: 'none'
+# เวอร์ชันแอป 1.3.4 และเลขบิลด์ 8 (หลังเครื่องหมายบวก)
+version: 1.3.4+8
+
+# ข้อกำหนดของสภาพแวดล้อม
+environment:
+  # ต้องใช้ Dart SDK เวอร์ชัน 3.12.2 ขึ้นไป
+  sdk: ^3.12.2
+
+# แพ็กเกจที่แอปต้องใช้ตอนรัน
+dependencies:
+  # ไลบรารี Flutter
+  flutter:
+    # มาจาก Flutter SDK
+    sdk: flutter
+
+  # ไอคอนสไตล์ iOS
+  cupertino_icons: ^1.0.8
+  # provider ใช้จัดการ state ระหว่างหน้า (CustomizerState)
+  provider: ^6.1.2
+  # model_viewer_plus ใช้แสดงโมเดล 3D ผ่าน WebView
+  model_viewer_plus: ^1.6.0
+  # webview_flutter ใช้ควบคุม WebView และรัน JavaScript
+  webview_flutter: ^4.2.2
+  # google_fonts ใช้ฟอนต์ Poppins
+  google_fonts: ^6.2.1
+  # flutter_svg ใช้วาดโลโก้แบรนด์แบบ SVG
+  flutter_svg: ^2.0.10+1
+  # http ใช้ดาวน์โหลดไฟล์ SVG โลโก้
+  http: ^1.2.2
+  # flutter_colorpicker ใช้วงล้อเลือกสี
+  flutter_colorpicker: ^1.1.0
+  # image_picker ใช้เลือกรูปจากแกลเลอรี
+  image_picker: ^1.1.2
+
+# แพ็กเกจที่ใช้เฉพาะตอนพัฒนาและทดสอบ
+dev_dependencies:
+  # เครื่องมือเขียนเทสต์ของ Flutter
+  flutter_test:
+    # มาจาก Flutter SDK
+    sdk: flutter
+  # ชุดกฎตรวจคุณภาพโค้ด (lint)
+  flutter_lints: ^6.0.0
+
+# การตั้งค่าเฉพาะของ Flutter
+flutter:
+  # ใช้ไอคอนของ Material Design
+  uses-material-design: true
+
+  # รายการไฟล์ asset ที่ต้องแพ็กรวมไปกับแอป
+  assets:
+    # โมเดล 3D รองเท้า Nike (ใช้กับ Nike และ Converse)
+    - assets/shoe_nike.glb
+    # โมเดล 3D รองเท้า Adidas (ใช้กับ Adidas และ Vans)
+    - assets/shoe_adidas.glb
+    # สคริปต์ตัววาด texture (บันเดิลของ three.js และโค้ดจาก tools/shoe_painter_entry.js) ชื่อ v3_2 เพื่อกัน WebView ใช้แคชเก่า
+    - assets/shoe_painter_v3_2.js
+    # โฟลเดอร์ตัวถอดรหัส Draco ทั้งหมด (ต้องมีโฟลเดอร์ย่อยนี้ทั้งชุด)
+    - assets/draco/

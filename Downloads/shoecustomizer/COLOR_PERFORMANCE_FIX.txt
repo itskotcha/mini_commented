@@ -1,0 +1,24 @@
+# เวอร์ชันของการแก้ไขนี้ คือ 1.3.4 บิลด์ 8
+Version 1.3.4+8
+# หัวข้อรายการสิ่งที่เปลี่ยนจากเวอร์ชัน 1.3.3+7
+Changes from 1.3.3+7:
+# ลดความเข้มแสง ใช้ tone mapping แบบ ACES และพื้นหลังเทาอ่อน (ดูการตั้งค่าไฟและ renderer ใน shoe_painter_entry.js)
+- Reduced light intensity, ACES tone mapping and a light gray background.
+# รวมการเปลี่ยน texture ให้วาดไม่เกินหนึ่งครั้งต่อ material ต่อเฟรม (ชุด dirtyMaterials และลูปแสดงผลหลัก)
+- Coalesced texture changes to at most one repaint per material per frame.
+# ฝั่ง Flutter เก็บสีล่าสุดของแต่ละชิ้นส่วนและส่งแบบเรียงลำดับ ห่างกัน 33 มิลลิวินาที (_scheduleColors และ _flushColors)
+- Flutter retains the latest color per part and sends serial updates, spaced by 33ms.
+# อัลกอริทึมวางสติกเกอร์และวาดลายไม่ได้ถูกแก้
+- Sticker and drawing placement algorithms remain unchanged.
+
+# วิธีอัปเดต: ต้องแทนที่ไฟล์ทั้งสามพร้อมกัน
+Replace lib/widgets/shoe_model_viewer.dart, assets/shoe_painter_v3_2.js,
+# เก็บไฟล์ Draco ไว้ แล้วหยุดแอปและรันใหม่
+and pubspec.yaml together. Keep the Draco assets. Stop and run the app again.
+
+# สิ่งที่ทดสอบ: ไวยากรณ์ JS, bootstrap จำลอง และการลดการวาดซ้ำต่อเฟรม (ดู tools/check_color_updates.cjs)
+Tests: JS syntax, mocked bootstrap, per-frame repaint deduplication.
+# ข้อจำกัด: ไม่มี Flutter SDK หรือ Android ในสภาพแวดล้อมทดสอบ
+No Flutter SDK/Android runtime available here. Visual color accuracy and actual
+# ความแม่นยำของสีและความหน่วงจริงบนมือถือต้องทดสอบบนเครื่องจริง และไม่ได้อ้างว่าเร็วเท่า V2
+phone latency still require device testing; this does not claim V2 performance parity.

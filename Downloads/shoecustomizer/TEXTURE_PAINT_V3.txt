@@ -1,0 +1,34 @@
+# ชื่อเอกสาร: Shoe Customizer เวอร์ชัน Texture Paint V3
+SHOE CUSTOMIZER - TEXTURE PAINT V3
+# เวอร์ชัน 1.3.2 บิลด์ 6
+Version: 1.3.2+6
+
+# สรุปการเปลี่ยนแปลงหลัก: เลิกใช้ hotspot 2 มิติ มาวาดลง CanvasTexture ตามพิกัด UV ของโมเดล 3D
+รุ่นนี้เปลี่ยนจาก hotspot 2D เป็นการวาดลง CanvasTexture ตาม UV ของโมเดล 3D
+
+# หัวข้อ: จุดตรวจสอบหลังนำไฟล์ไปใช้
+จุดตรวจสอบ:
+# ข้อ 1: pubspec.yaml ต้องลงทะเบียน asset ตัววาดและโฟลเดอร์ draco
+1. pubspec.yaml ต้องมี assets/shoe_painter_v3_2.js และ assets/draco/
+# ข้อ 2: ไฟล์ assets/shoe_painter_v3_2.js ต้องมีอยู่จริง
+2. assets/shoe_painter_v3_2.js ต้องมีอยู่จริง
+# ข้อ 3: โฟลเดอร์ draco ต้องมีตัวถอดรหัส 3 ไฟล์ (draco_decoder.js, draco_wasm_wrapper.js, draco_decoder.wasm)
+3. assets/draco/ ต้องมี decoder 3 ไฟล์
+# ข้อ 4: shoe_model_viewer.dart ต้องเรียกผ่าน window.shoePainter
+4. lib/widgets/shoe_model_viewer.dart ต้องเรียก window.shoePainter
+# ข้อ 5: ตำแหน่งสติกเกอร์และเส้นวาดใหม่ขึ้นต้นด้วย uv ตามด้วยตัวคั่น (ดู encodeTarget)
+5. ตำแหน่งสติกเกอร์/เส้นวาดใหม่จะขึ้นต้นด้วย uv|
+
+# หลังแทนที่โปรเจกต์ ให้ปิดแอปที่รันอยู่แล้วทำตามคำสั่งด้านล่าง
+หลังแทนที่โปรเจกต์ ให้ปิดแอปที่กำลังรัน แล้วรัน:
+# ล้าง build เดิม
+flutter clean
+# ติดตั้งแพ็กเกจใหม่
+flutter pub get
+# รันแอป
+flutter run
+
+# V3.1: เพิ่มการลองซ้ำของ handshake สำหรับ Android WebView (เมธอด _primePainterBridge)
+V3.1 เพิ่ม handshake retry สำหรับ Android WebView เพื่อแก้อาการแตะสี/สติกเกอร์/ปากกาแล้วไม่ทำงาน
+# V3.2: เพิ่มคิวคำสั่งที่ไม่ต้องรอ ModelLoaded (ตัวแปร __shoePainterQueue) และเปลี่ยนชื่อ asset กัน WebView ใช้แคชเก่า
+V3.2 เพิ่ม command queue ที่ไม่พึ่ง ModelLoaded และเปลี่ยนชื่อ asset เพื่อป้องกัน WebView ใช้ไฟล์ cache เก่า
