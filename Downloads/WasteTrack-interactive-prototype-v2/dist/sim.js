@@ -1,0 +1,477 @@
+/* WasteTrack v2: Haversine + Geofence + Clarke-Wright + จำลองรถเก็บขยะ + แดชบอร์ด (ปรับให้ตรงเอกสาร SE02) */
+const R_ = 100,
+  BASE = { lat: 19.925, lng: 99.193 };
+const ll = (p) => ({
+  ...p,
+  lat: BASE.lat + p.y / 111320,
+  lng: BASE.lng + p.x / (111320 * Math.cos((BASE.lat * Math.PI) / 180)),
+});
+const H = (a, b) => {
+  const r = Math.PI / 180,
+    x =
+      Math.sin(((b.lat - a.lat) * r) / 2) ** 2 +
+      Math.cos(a.lat * r) *
+        Math.cos(b.lat * r) *
+        Math.sin(((b.lng - a.lng) * r) / 2) ** 2;
+  return 12742000 * Math.asin(Math.sqrt(x));
+};
+const DEPOT = ll({ n: "อบต.แม่คะ", x: 0, y: 0 });
+function cw(P, D) {
+  const d0 = P.map((p) => H(D, p));
+  let rs = P.map((_, i) => [i]),
+    s = [];
+  for (let i = 0; i < P.length; i++)
+    for (let j = i + 1; j < P.length; j++)
+      s.push([d0[i] + d0[j] - H(P[i], P[j]), i, j]);
+  s.sort((a, b) => b[0] - a[0]);
+  for (const [, i, j] of s) {
+    const a = rs.find((r) => r.includes(i)),
+      b = rs.find((r) => r.includes(j));
+    if (a === b) continue;
+    const ea = i === a[0] || i === a.at(-1),
+      eb = j === b[0] || j === b.at(-1);
+    if (!ea || !eb) continue;
+    const A = i === a.at(-1) ? a : [...a].reverse(),
+      B = j === b[0] ? b : [...b].reverse();
+    rs = rs.filter((r) => r !== a && r !== b);
+    rs.push(A.concat(B));
+  }
+  const r = rs[0];
+  return d0[r[0]] > d0[r.at(-1)] ? r.reverse() : r;
+}
+const plen = (P, o) =>
+  o.reduce((s, k, i) => s + H(i ? P[o[i - 1]] : DEPOT, P[k]), 0);
+const SP = [
+  ["ศาลาประชาคม", 1100, 300],
+  ["ลานตากข้าว", -250, 380],
+  ["โรงเรียนบ้านแม่คะ", 780, -120],
+  ["ตลาดนัดหมู่ 5", 150, 700],
+  ["ตลาดบ้านแม่คะ", 420, 260],
+  ["วัดแม่คะ", 650, 620],
+];
+let sim;
+function simReset() {
+  document.getElementById("simmodal")?.remove();
+  const P = SP.map(([n, x, y], i) => ({
+    ...ll({ n, x, y }),
+    id: i,
+    st: "pending",
+    asked: 0,
+  }));
+  const order = cw(P, DEPOT);
+  sim = {
+    P,
+    order,
+    pos: { x: 0, y: 0 },
+    run: 0,
+    tgt: null,
+    spd: 1,
+    modal: 0,
+    hab: plen(
+      P,
+      P.map((_, i) => i),
+    ),
+    opt: plen(P, order),
+  };
+}
+simReset();
+const nextP = () => sim.order.find((i) => sim.P[i].st === "pending");
+const cnt = (s) => sim.P.filter((p) => p.st === s).length;
+function driveTo(i) {
+  if (!sim.run) return toast("กด “เริ่มโหมดปฏิบัติงาน” ก่อน");
+  if (sim.P[i].st !== "pending") return toast("จุดนี้บันทึกผลแล้ว");
+  sim.P[i].asked = 0;
+  sim.tgt = sim.resume = i;
+  sim.auto = 0;
+}
+function simNext() {
+  const n = nextP();
+  if (n == null) return toast("จัดเก็บครบทุกจุดแล้ว");
+  driveTo(n);
+  sim.auto = 1;
+}
+function simToggle() {
+  sim.run = !sim.run;
+  toast(sim.run ? "เริ่มโหมดปฏิบัติงาน: ส่งพิกัด GPS แล้ว" : "หยุดส่งพิกัด");
+  render();
+}
+function simAns(id, st) {
+  const p = sim.P[id];
+  p.st = st;
+  p.why = st === "fail" ? document.getElementById("why").value : "";
+  document.getElementById("simmodal").remove();
+  sim.modal = 0;
+  toast(
+    st === "done"
+      ? "บันทึก: จัดเก็บแล้ว"
+      : "บันทึก: ไม่สามารถจัดเก็บได้ — " + p.why,
+  );
+  const n = nextP();
+  if (n == null) {
+    sim.tgt = null;
+    toast(
+      "ครบทุกจุดแล้ว • จัดเก็บ " + cnt("done") + " / ไม่ได้ " + cnt("fail"),
+    );
+  } else
+    sim.tgt = sim.auto
+      ? n
+      : sim.P[sim.resume]?.st === "pending"
+        ? sim.resume
+        : null;
+  render();
+}
+function askModal(p) {
+  sim.modal = p.id;
+  const m = document.createElement("div");
+  m.id = "simmodal";
+  m.className = "modal-backdrop";
+  m.innerHTML = `<div class="modal"><span class="metric-icon">⌖</span><h2>${p.n}</h2><p>อุปกรณ์เข้าสู่รัศมี Geofence ${R_} ม. (Haversine = ${Math.round(H(ll(sim.pos), p))} ม.) กรุณายืนยันผล</p><div class="field"><label>เหตุผล (ใช้เมื่อจัดเก็บไม่ได้)</label><select id="why"><option>รถจอดขวาง</option><option>ขยะชิ้นใหญ่</option><option>ถนนเข้าไม่ได้</option><option>อื่น ๆ</option></select></div><div class="actions" style="margin-top:14px"><button class="btn btn-primary" onclick="simAns(${p.id},'done')">จัดเก็บแล้ว</button><button class="btn btn-danger" onclick="simAns(${p.id},'fail')">ไม่สามารถจัดเก็บได้</button></div><p class="hint">ระบบไม่เปลี่ยนสถานะเองจาก GPS และจะไม่เตือนซ้ำจุดเดิมในรอบนี้</p></div>`;
+  document.body.appendChild(m);
+}
+setInterval(() => {
+  if (!sim.run || sim.modal || sim.tgt == null) return;
+  const t = sim.P[sim.tgt],
+    dx = t.x - sim.pos.x,
+    dy = t.y - sim.pos.y,
+    d = Math.hypot(dx, dy),
+    s = Math.min(d, sim.spd * 20);
+  if (d > 0) {
+    sim.pos.x += (dx / d) * s;
+    sim.pos.y += (dy / d) * s;
+  }
+  const c = ll(sim.pos),
+    hit = sim.P.find((p) => p.st === "pending" && !p.asked && H(c, p) <= R_);
+  if (hit) {
+    hit.asked = 1;
+    sim.resume = sim.tgt;
+    sim.tgt = null;
+    askModal(hit);
+  } else if (d <= s) sim.tgt = null;
+  simPaint();
+}, 50);
+const COL = { pending: "#64748b", done: "#16a34a", fail: "#dc2626" };
+function svgIn(ro) {
+  const y = (v) => 760 - v,
+    o = [DEPOT, ...sim.order.map((i) => sim.P[i])];
+  return `<path d="M-400 ${y(-40)}L1300 ${y(620)}M-400 ${y(430)}L1300 ${y(250)}M300 ${y(-140)}L520 ${y(760)}" stroke="#fff" stroke-width="22" fill="none"/>
+ <polyline points="${o.map((p) => p.x + "," + y(p.y)).join(" ")}" fill="none" stroke="#175cd3" stroke-width="7" stroke-dasharray="26 16"/>
+ <circle cx="0" cy="${y(0)}" r="30" fill="#103c2a"/><text x="45" y="${y(0) + 14}" font-size="46" font-weight="700">${DEPOT.n}</text>
+ ${sim.P.map((p) => `<g ${ro ? "" : `onclick="driveTo(${p.id})"`}><circle cx="${p.x}" cy="${y(p.y)}" r="${R_}" fill="${COL[p.st]}" fill-opacity=".13" stroke="${COL[p.st]}" stroke-dasharray="10 8" stroke-width="3"/><circle cx="${p.x}" cy="${y(p.y)}" r="42" fill="${COL[p.st]}" stroke="#fff" stroke-width="6"/><text x="${p.x}" y="${y(p.y) + 13}" text-anchor="middle" fill="#fff" font-size="44" font-weight="700">${p.st === "done" ? "✓" : p.st === "fail" ? "!" : sim.order.indexOf(p.id) + 1}</text><text x="${p.x}" y="${y(p.y) + R_ + 56}" text-anchor="middle" font-size="50" font-weight="600">${p.n}</text></g>`).join("")}
+ <text x="${sim.pos.x}" y="${y(sim.pos.y) + 22}" text-anchor="middle" font-size="90">🚛</text>`;
+}
+function hudHtml() {
+  const c = ll(sim.pos),
+    t = sim.P[sim.tgt ?? nextP()],
+    d = t ? Math.round(H(c, t)) : 0,
+    inn = sim.P.some((p) => H(c, p) <= R_);
+  return `<div class="hud"><div>GPS<b>${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</b></div><div>จุดเป้าหมาย<b>${t ? t.n : "ครบแล้ว"}</b></div><div>ระยะถึงจุด (Haversine)<b>${d} ม.</b></div><div>Geofence<b>${inn ? "อยู่ในรัศมี" : "อยู่นอกรัศมี"}</b></div><div>จัดเก็บแล้ว<b>${cnt("done")} จุด</b></div><div>ไม่สามารถจัดเก็บ / รอ<b>${cnt("fail")} / ${cnt("pending")}</b></div></div>`;
+}
+function simPaint() {
+  const s = document.getElementById("simsvg"),
+    h = document.getElementById("simhud");
+  if (s) s.innerHTML = svgIn(s.dataset.ro === "1");
+  if (h) h.innerHTML = hudHtml();
+}
+const simSvg = (ro) =>
+  `<div class="sim"><svg id="simsvg" data-ro="${ro ? 1 : 0}" viewBox="-400 0 1700 900">${svgIn(ro)}</svg></div>`;
+const dlg = `<div class="dlg"><span><i style="background:#64748b"></i>รอจัดเก็บ</span><span><i style="background:#16a34a"></i>จัดเก็บแล้ว</span><span><i style="background:#dc2626"></i>ไม่สามารถจัดเก็บได้</span><span><i style="background:#175cd3"></i>เส้นทางแนะนำ</span></div>`;
+function routePage() {
+  const sv = Math.max(0, ((sim.hab - sim.opt) / sim.hab) * 100);
+  return shell(
+    `${pageHead("จำลองการเก็บขยะและเส้นทางแนะนำ", "แตะจุดบนแผนที่เพื่อขับรถไปยังจุดนั้น • ข้อมูลพิกัดเป็นชุดทดสอบ")}<div class="grid grid-3"><div class="card" style="grid-column:span 2">${simSvg(0)}${dlg}</div><aside class="card"><div class="actions"><button class="btn ${sim.run ? "btn-danger" : "btn-primary"}" onclick="simToggle()">${sim.run ? "หยุดโหมดปฏิบัติงาน" : "เริ่มโหมดปฏิบัติงาน"}</button><button class="btn btn-secondary" onclick="simNext()">ขับไปจุดถัดไป</button><button class="btn btn-ghost" onclick="simReset();render()">เริ่มรอบใหม่</button></div><div class="field" style="margin-top:12px"><label>ความเร็วจำลอง</label><select onchange="sim.spd=+this.value"><option value="1">1×</option><option value="3">3×</option><option value="8">8×</option></select></div><div id="simhud">${hudHtml()}</div><div class="notice">Clarke-Wright: ${(plen(sim.P, sim.order) / 1000).toFixed(2)} กม. เทียบลำดับเดิม ${(sim.hab / 1000).toFixed(2)} กม. (ลด ${sv.toFixed(0)}%) <small class="hint">ระยะเส้นตรง ไม่ใช่ระยะตามถนน</small></div><h3>ลำดับจุดที่แนะนำ</h3>${sim.order.map((i, k) => `<button class="pt" onclick="driveTo(${i})"><span>${k + 1}. ${sim.P[i].n}</span>${badge({ pending: "รอ", done: "จัดเก็บแล้ว", fail: "ไม่ได้" }[sim.P[i].st], { pending: "blue", done: "green", fail: "red" }[sim.P[i].st])}</button>`).join("")}</aside></div>`,
+  );
+}
+function mapView() {
+  return shell(
+    `${pageHead("ติดตามรถเก็บขยะ", "ตำแหน่งรถและสถานะจุด อัปเดตสด • " + (sim.run ? "ออนไลน์" : "รถยังไม่เริ่มปฏิบัติงาน"))}<div class="grid grid-3"><div class="card" style="grid-column:span 2">${simSvg(1)}${dlg}<p class="hint">เปิดหน้า “จำลองเก็บขยะ” ในบทบาทพนักงานเพื่อขับรถ แล้วกลับมาดูการเปลี่ยนสถานะที่นี่</p></div><aside class="card"><h3>สถานะจุดจัดเก็บ</h3>${sim.P.map((p) => `<button class="pt" onclick="toast('${p.n}: ${{ pending: "รอจัดเก็บ", done: "จัดเก็บแล้ว", fail: "ไม่สามารถจัดเก็บได้ — " + (p.why || "") }[p.st]}')"><span>${p.n}</span>${badge({ pending: "รอ", done: "จัดเก็บแล้ว", fail: "ไม่ได้" }[p.st], { pending: "blue", done: "green", fail: "red" }[p.st])}</button>`).join("")}</aside></div>`,
+  );
+}
+/* ---- ปรับให้ตรงเอกสาร ---- */
+navs.collector = [
+  ["staff-home", "หน้าหลัก", "⌂"],
+  ["route", "จำลองเก็บขยะ", "⌖"],
+];
+navs.admin = [
+  ["admin-home", "บัญชีผู้ใช้", "👤"],
+  ["admin-roles", "บทบาทและสิทธิ์", "⚙"],
+];
+navs.guest[3] = ["fee-me", "ค่าธรรมเนียม", "◷"];
+const wrap = (n, f) => {
+  const o = window[n];
+  window[n] = (...a) => f(o(...a));
+};
+wrap("staffHome", (h) =>
+  h
+    .replace("คำร้องที่ได้รับ", "จุดที่เหลือ")
+    .replace("<strong>8</strong>", "<strong>" + cnt("pending") + "</strong>")
+    .replace("<strong>24</strong>", "<strong>" + sim.P.length + "</strong>")
+    .replace("<strong>15</strong>", "<strong>" + cnt("done") + "</strong>")
+    .replace("go('assigned')", "go('route')")
+    .replace("คำร้องที่ได้รับมอบหมาย", "ลำดับจุดวันนี้")
+    .replace("ดูรายละเอียดและตำแหน่งหน้างาน", "ดูลำดับจุดที่ระบบแนะนำ"),
+);
+wrap("adminHome", (h) =>
+  h
+    .replace(
+      /<button class="btn btn-primary" onclick="go\('admin-add'\)">[^<]*<\/button>/,
+      "",
+    )
+    .replace(
+      '<div class="toolbar">',
+      '<div class="notice">ตามขอบเขตโครงงาน การกำหนดบทบาทและสิทธิ์ทำผ่านฐานข้อมูล Supabase โดยตรง (ไม่มีหน้าจอ self-service)</div><div class="toolbar">',
+    ),
+);
+wrap("citizenHome", (h) =>
+  h.replace(
+    '<div class="grid grid-2">',
+    `<div class="notice">🔔 ${state.push ? "ลงทะเบียนอุปกรณ์รับ Push แล้ว" : "รับแจ้งเตือนกำหนดการผ่าน Push Notification (FCM)"} <button class="btn btn-secondary" onclick="state.push=1;toast('ลงทะเบียนอุปกรณ์แล้ว');render()">${state.push ? "ลงทะเบียนแล้ว" : "ลงทะเบียนอุปกรณ์"}</button></div><div class="grid grid-2">`,
+  ),
+);
+wrap("feeHouse", (h) =>
+  h.replace(
+    "<option>นัดหมายใหม่</option><option>จัดเก็บแล้ว</option><option>ค้างดำเนินการ</option>",
+    [
+      "รอแจ้งกำหนดการ",
+      "นัดหมายแล้ว",
+      "รอดำเนินการ",
+      "จัดเก็บแล้ว",
+      "ไม่พบผู้อยู่อาศัย",
+      "นัดหมายใหม่",
+      "ค้างดำเนินการ",
+    ]
+      .map((x) => `<option>${x}</option>`)
+      .join(""),
+  ),
+);
+wrap("feeCalendar", (h) =>
+  h.replaceAll(
+    '<div class="card" style="min-height:92px;padding:12px">',
+    '<div class="card" style="min-height:92px;padding:12px;cursor:pointer" onclick="toast(\'วันที่ \'+this.firstChild.textContent+\' ม.ค. 2570\')">',
+  ),
+);
+feeRows.push(
+  ["บ้านเลขที่ 75", "หมู่ 5", "รอแจ้งกำหนดการ", "blue"],
+  ["บ้านเลขที่ 80", "หมู่ 5", "นัดหมายใหม่", "amber"],
+  ["บ้านเลขที่ 83", "หมู่ 5", "ค้างดำเนินการ", "red"],
+);
+const _fm = feeMe;
+feeMe = () =>
+  state.hh
+    ? _fm()
+    : shell(
+        `${pageHead("ตรวจสอบครัวเรือนของฉัน", "ยืนยันตัวตนเบื้องต้นโดยไม่ต้องสร้างบัญชี")}<form class="card" style="max-width:560px" onsubmit="event.preventDefault();state.hh=1;toast('ยืนยันครัวเรือนแล้ว');render()"><div class="field"><label>เลขที่ครัวเรือน / บ้านเลขที่</label><input required value="52 หมู่ 5"></div><div class="field" style="margin-top:14px"><label>เบอร์โทรศัพท์ที่ลงทะเบียนไว้กับคำร้อง</label><input required value="08x-xxx-1234"></div><p class="hint">ระบบแสดงเฉพาะข้อมูลครัวเรือนของคุณ</p><button class="btn btn-primary">ยืนยันและดูข้อมูล</button></form>`,
+      );
+/* ---- แดชบอร์ด ---- */
+Object.assign(state, { tab: "c", rng: 1, sel: null });
+const VD = Array.from({ length: 15 }, (_, i) => {
+  const t = 7 + ((i * 5) % 9) + (i % 4),
+    d = Math.round(t * (0.35 + ((i * 7) % 5) / 10)),
+    a = Math.round((t - d) / 2),
+    pt = 8 + (i % 5) * 2;
+  return {
+    v: i + 1,
+    w: t - d - a,
+    a,
+    d,
+    pt,
+    pd: Math.round(pt * (0.4 + ((i * 3) % 6) / 10)),
+    x: 90 + (i % 5) * 170 + (i % 3) * 18,
+    y: 70 + Math.floor(i / 5) * 125 + (i % 2) * 14,
+  };
+});
+const FS = [
+  ["รอแจ้งกำหนดการ", 5, "#94a3b8"],
+  ["นัดหมายแล้ว", 14, "#175cd3"],
+  ["รอดำเนินการ", 8, "#0f766e"],
+  ["จัดเก็บแล้ว", 74, "#16a34a"],
+  ["ไม่พบผู้อยู่อาศัย", 9, "#dc2626"],
+  ["นัดหมายใหม่", 4, "#d9a400"],
+  ["ค้างดำเนินการ", 6, "#9a3412"],
+];
+const CC = ["#d9a400", "#175cd3", "#16a34a"],
+  KC = ["#16a34a", "#cbd5e1"];
+const sc = (v) => Math.round(v * state.rng);
+const dset = () =>
+  state.tab === "c"
+    ? {
+        n: ["รอตรวจสอบ", "มอบหมายแล้ว", "ดำเนินการเสร็จ"],
+        c: CC,
+        r: VD.map((x) => ({
+          l: "หมู่ " + x.v,
+          s: [sc(x.w), sc(x.a), sc(x.d)],
+        })),
+      }
+    : state.tab === "k"
+      ? {
+          n: ["จัดเก็บแล้ว", "ยังไม่จัดเก็บ"],
+          c: KC,
+          r: VD.map((x) => ({ l: "หมู่ " + x.v, s: [x.pd, x.pt - x.pd] })),
+        }
+      : {
+          n: FS.map((f) => f[0]),
+          c: FS.map((f) => f[2]),
+          r: FS.map((f) => ({
+            l: f[0],
+            s: FS.map((g, j) => (g === f ? f[1] : 0)),
+          })),
+        };
+function bars(D) {
+  const mx = Math.max(...D.r.map((r) => r.s.reduce((a, b) => a + b, 0)), 1),
+    w = 760 / D.r.length;
+  return `<svg viewBox="0 0 800 300" style="width:100%">${D.r
+    .map((r, i) => {
+      let y = 240;
+      const tot = r.s.reduce((a, b) => a + b, 0);
+      return `<g onclick="state.sel=${i};render()" style="cursor:pointer">${r.s
+        .map((v, j) => {
+          const h = (v / mx) * 200;
+          y -= h;
+          return h
+            ? `<rect x="${20 + i * w + 4}" y="${y}" width="${w - 8}" height="${h}" rx="3" fill="${D.c[j]}" ${state.sel === i ? 'stroke="#172b24" stroke-width="2"' : ""}/>`
+            : "";
+        })
+        .join(
+          "",
+        )}<text x="${20 + i * w + w / 2}" y="${236 - (tot / mx) * 200}" text-anchor="middle" font-size="11">${tot}</text><text x="${20 + i * w + w / 2}" y="262" text-anchor="middle" font-size="${D.r.length > 9 ? 11 : 9}">${D.r[i].l.replace("ผู้อยู่อาศัย", "").replace("การ", "")}</text></g>`;
+    })
+    .join("")}</svg>`;
+}
+function donut(D) {
+  const t = D.c.map((_, j) => D.r.reduce((a, r) => a + r.s[j], 0)),
+    T = t.reduce((a, b) => a + b, 0) || 1;
+  let o = 0;
+  return `<svg viewBox="0 0 120 120" style="width:170px;display:block;margin:auto"><g transform="rotate(-90 60 60)">${t
+    .map((v, j) => {
+      const l = (v / T) * 314,
+        e = `<circle cx="60" cy="60" r="50" fill="none" stroke="${D.c[j]}" stroke-width="22" stroke-dasharray="${l} ${314 - l}" stroke-dashoffset="${-o}"/>`;
+      o += l;
+      return e;
+    })
+    .join(
+      "",
+    )}</g><text x="60" y="66" text-anchor="middle" font-size="20" font-weight="700">${T}</text></svg><div class="dlg">${D.n.map((n, j) => `<span><i style="background:${D.c[j]}"></i>${n} ${t[j]} (${Math.round((t[j] / T) * 100)}%)</span>`).join("")}</div>`;
+}
+function vmap() {
+  return `<svg viewBox="0 0 880 400" style="width:100%;background:#eaf1ed;border-radius:14px">${VD.map(
+    (x, i) => {
+      const p = x.pd / x.pt,
+        col = p >= 0.7 ? "#16a34a" : p >= 0.5 ? "#d9a400" : "#dc2626";
+      return `<g onclick="state.sel=${i};render()" style="cursor:pointer"><circle cx="${x.x}" cy="${x.y + 60}" r="${14 + Math.sqrt(sc(x.w + x.a + x.d)) * 5}" fill="${col}" fill-opacity=".35" stroke="${col}" stroke-width="${state.sel === i ? 5 : 2}"/><text x="${x.x}" y="${x.y + 66}" text-anchor="middle" font-size="18" font-weight="700">${x.v}</text></g>`;
+    },
+  ).join(
+    "",
+  )}</svg><div class="dlg"><span><i style="background:#16a34a"></i>จัดเก็บ ≥70%</span><span><i style="background:#d9a400"></i>50–69%</span><span><i style="background:#dc2626"></i>&lt;50%</span><span>ขนาดวง = จำนวนคำร้อง</span></div>`;
+}
+function dash() {
+  const D = dset(),
+    V = VD.reduce(
+      (a, x) => ({
+        c: a.c + sc(x.w + x.a + x.d),
+        d: a.d + sc(x.d),
+        p: a.p + x.pt,
+        pd: a.pd + x.pd,
+      }),
+      { c: 0, d: 0, p: 0, pd: 0 },
+    ),
+    s = VD[state.sel];
+  return shell(`${pageHead(
+    "แดชบอร์ดและสถิติ",
+    "สรุปเชิงพื้นที่ 15 หมู่บ้าน • ข้อมูลตัวอย่างสำหรับต้นแบบ",
+    `<select class="filter" onchange="state.rng=+this.value;render()">${[
+      ["วันนี้", 0.1],
+      ["7 วันล่าสุด", 0.3],
+      ["30 วันล่าสุด", 1],
+    ]
+      .map(
+        (o) =>
+          `<option value="${o[1]}" ${state.rng == o[1] ? "selected" : ""}>${o[0]}</option>`,
+      )
+      .join("")}</select>`,
+  )}
+ <div class="grid grid-4"><div class="card metric"><div><span class="hint">คำร้องทั้งหมด</span><strong>${V.c}</strong></div><span class="metric-icon">📝</span></div><div class="card metric"><div><span class="hint">คำร้องเสร็จแล้ว</span><strong>${V.c ? Math.round((V.d / V.c) * 100) : 0}%</strong></div><span class="metric-icon">✓</span></div><div class="card metric"><div><span class="hint">จุดจัดเก็บแล้ว</span><strong>${V.pd}/${V.p}</strong></div><span class="metric-icon">⌖</span></div><div class="card metric"><div><span class="hint">รถสด (สาธิต)</span><strong>${cnt("done")}/${sim.P.length}</strong></div><span class="metric-icon">🚛</span></div></div>
+ <div class="tabs" style="margin-top:18px">${[
+   ["c", "คำร้องรายหมู่บ้าน"],
+   ["k", "จุดจัดเก็บรายหมู่บ้าน"],
+   ["f", "สถานะค่าธรรมเนียม (7 สถานะ)"],
+ ]
+   .map(
+     (t) =>
+       `<button class="btn ${state.tab === t[0] ? "btn-primary" : "btn-secondary"}" onclick="state.tab='${t[0]}';state.sel=null;render()">${t[1]}</button>`,
+   )
+   .join("")}</div>
+ <div class="grid grid-3"><div class="card" style="grid-column:span 2"><h3>กราฟแท่ง (แตะเพื่อดูรายละเอียด)</h3>${bars(D)}</div><div class="card"><h3>สัดส่วนสถานะ</h3>${donut(D)}</div></div>
+ ${state.tab !== "f" ? `<div class="grid grid-3" style="margin-top:18px"><div class="card" style="grid-column:span 2"><h3>สรุปเชิงพื้นที่รายหมู่บ้าน</h3>${vmap()}</div><div class="card"><h3>${s ? "หมู่ " + s.v : "เลือกหมู่บ้าน"}</h3>${s ? `<p>คำร้อง ${sc(s.w + s.a + s.d)} รายการ (รอ ${sc(s.w)} • มอบหมาย ${sc(s.a)} • เสร็จ ${sc(s.d)})</p><p>จุดจัดเก็บ ${s.pd}/${s.pt}</p><div class="progress"><span style="width:${(s.pd / s.pt) * 100}%"></span></div>` : "<p>แตะวงกลมบนแผนที่หรือแท่งกราฟ</p>"}</div></div>` : `<div class="card" style="margin-top:18px"><h3>รายการครัวเรือนล่าสุด</h3>${feeTable()}</div>`}
+ <div class="card" style="margin-top:18px"><h3>คำร้องล่าสุด</h3>${itemList(complaints, "super-complaint-detail")}</div>`);
+}
+superHome = stats = dash;
+/* ---- ทำให้กดได้ทุกจุด ---- */
+document.addEventListener(
+  "click",
+  (e) => {
+    const b = e.target.closest("button"),
+      p = e.target.closest(".pin");
+    if (p)
+      return toast(
+        p.closest(".map")?.querySelector(".map-card strong")?.textContent ||
+          "ตำแหน่งบนแผนที่",
+      );
+    if (
+      b &&
+      !b.getAttribute("onclick") &&
+      b.type !== "submit" &&
+      !b.closest("form")
+    )
+      toast("บันทึกการทำงานในต้นแบบแล้ว");
+  },
+  true,
+);
+document.addEventListener("input", (e) => {
+  if (e.target.classList.contains("search")) {
+    const q = e.target.value.trim();
+    document
+      .querySelectorAll(".list-item")
+      .forEach(
+        (x) => (x.style.display = x.textContent.includes(q) ? "" : "none"),
+      );
+  }
+});
+render();
+/* ===== v3: หน้าเลือกบทบาท 6 ช่อง + ปรับมือถือ ===== */
+const RS = {
+  guest: "ไม่ต้องเข้าสู่ระบบ",
+  collector: "เส้นทางและเก็บขยะ",
+  counter: "บันทึกคำร้องแทน",
+  accounting: "รอบและค่าธรรมเนียม",
+  supervisor: "แดชบอร์ดและคำร้อง",
+  admin: "ผู้ใช้และสิทธิ์",
+};
+function rolesPage() {
+  return `<section class="role-page"><div class="role-wrap"><header><div class="brand" style="justify-content:center"><span class="brand-mark">♻</span>WasteTrack</div><h1>คุณใช้งานในบทบาทใด</h1><p>แตะเพื่อเข้าใช้งาน</p></header><div class="role-grid">${Object.entries(
+    roles,
+  )
+    .map(
+      ([k, r]) =>
+        `<button class="role-tile ${k === "guest" ? "primary" : ""}" onclick="roleGo('${k}')"><span class="rt-ic">${r.icon}</span><strong>${r.label}</strong><small>${RS[k]}</small></button>`,
+    )
+    .join(
+      "",
+    )}</div><p style="text-align:center;margin-top:18px"><button class="btn btn-ghost" onclick="toast('เปิดคู่มือใช้งาน WasteTrack')">ⓘ คู่มือการใช้งาน</button></p></div></section>`;
+}
+const _sh = shell;
+shell = (c) => {
+  const h = _sh(c),
+    n = navs[state.role] || [];
+  return n.length > 4
+    ? h.replace(
+        /<\/nav><\/div>$/,
+        `<button class="${state.page === n[4][0] ? "active" : ""}" onclick="go('${n[4][0]}')"><b>${n[4][2]}</b>${n[4][1]}</button></nav></div>`,
+      )
+    : h;
+};
+wrap("routePage", (h) =>
+  h.replace(
+    "</main>",
+    `<div class="fab"><button class="btn ${sim.run ? "btn-danger" : "btn-primary"}" onclick="simToggle()">${sim.run ? "หยุด" : "เริ่มโหมดปฏิบัติงาน"}</button><button class="btn btn-secondary" onclick="simNext()">ไปจุดถัดไป</button></div></main>`,
+  ),
+);
+render();

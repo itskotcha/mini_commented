@@ -1,0 +1,413 @@
+const app = document.getElementById("app");
+const state = {
+  role: "guest",
+  page: "splash",
+  noticeSeen: false,
+  complaint: {
+    name: "",
+    age: "",
+    address: "",
+    type: "ก่อความรำคาญ",
+    detail: "",
+    image: "",
+    location: "หมู่ที่ 5 ตำบลแม่คะ",
+  },
+  filter: "ทั้งหมด",
+};
+const complaints = [
+  {
+    id: "WT-2569-0142",
+    type: "ก่อความรำคาญ",
+    village: "หมู่ 5",
+    title: "กลิ่นขยะสะสมบริเวณริมทาง",
+    date: "22 ต.ค. 2569",
+    status: "รอตรวจสอบ",
+    tone: "amber",
+    icon: "🗑️",
+  },
+  {
+    id: "WT-2569-0138",
+    type: "ขอถังใหม่",
+    village: "หมู่ 3",
+    title: "ขอถังขยะส่วนกลางเพิ่มเติม",
+    date: "21 ต.ค. 2569",
+    status: "มอบหมายแล้ว",
+    tone: "blue",
+    icon: "♻️",
+  },
+  {
+    id: "WT-2569-0129",
+    type: "ถังชำรุด",
+    village: "หมู่ 1",
+    title: "ฝาถังขยะชำรุด ใช้งานไม่ได้",
+    date: "19 ต.ค. 2569",
+    status: "ดำเนินการเสร็จ",
+    tone: "green",
+    icon: "✅",
+  },
+];
+const reports = [
+  {
+    id: "RP-0881",
+    name: "นายสมชาย ใจดี",
+    village: "หมู่ 5",
+    title: "จัดเก็บขยะบริเวณตลาดแล้ว",
+    date: "วันนี้ 10:42",
+    status: "รอตรวจสอบ",
+    tone: "amber",
+    icon: "📷",
+  },
+  {
+    id: "RP-0879",
+    name: "นายอนันต์ มีสุข",
+    village: "หมู่ 2",
+    title: "ไม่สามารถจัดเก็บได้ — มีรถจอดขวาง",
+    date: "วันนี้ 09:18",
+    status: "ต้องติดตาม",
+    tone: "red",
+    icon: "🚧",
+  },
+  {
+    id: "RP-0873",
+    name: "นายสมชาย ใจดี",
+    village: "หมู่ 1",
+    title: "จัดเก็บจุดร้องเรียนเรียบร้อย",
+    date: "เมื่อวาน 15:30",
+    status: "ตรวจสอบแล้ว",
+    tone: "green",
+    icon: "✅",
+  },
+];
+const feeRows = [
+  ["บ้านเลขที่ 52", "หมู่ 5", "นัดหมายแล้ว", "amber"],
+  ["บ้านเลขที่ 54", "หมู่ 5", "จัดเก็บแล้ว", "green"],
+  ["บ้านเลขที่ 61", "หมู่ 5", "ไม่พบผู้อยู่อาศัย", "red"],
+  ["บ้านเลขที่ 70", "หมู่ 5", "รอดำเนินการ", "blue"],
+];
+const roles = {
+  guest: { label: "ประชาชน", icon: "👥" },
+  collector: { label: "พนักงานเก็บขยะ", icon: "🚛" },
+  counter: { label: "เจ้าหน้าที่หน้าเคาน์เตอร์", icon: "🧾" },
+  accounting: { label: "เจ้าหน้าที่ฝ่ายบัญชี", icon: "📅" },
+  supervisor: { label: "หัวหน้าฝ่าย", icon: "📊" },
+  admin: { label: "ผู้ดูแลระบบ", icon: "⚙️" },
+};
+const navs = {
+  guest: [
+    ["home", "หน้าหลัก", "⌂"],
+    ["track", "ติดตามรถ", "🚛"],
+    ["complaint", "ยื่นคำร้อง", "＋"],
+    ["my-status", "สถานะของฉัน", "◷"],
+  ],
+  collector: [
+    ["staff-home", "หน้าหลัก", "⌂"],
+    ["assigned", "คำร้องที่ได้รับ", "☷"],
+    ["route", "เส้นทางแนะนำ", "⌖"],
+    ["staff-report", "ส่งรายงาน", "＋"],
+  ],
+  counter: [
+    ["counter-home", "รายการคำร้อง", "☷"],
+    ["counter-create", "บันทึกคำร้องแทน", "＋"],
+    ["counter-search", "ค้นหาข้อมูล", "⌕"],
+  ],
+  accounting: [
+    ["fee-dashboard", "ภาพรวมรอบ", "⌂"],
+    ["fee-rounds", "รอบจัดเก็บ", "▣"],
+    ["fee-calendar", "ปฏิทิน", "▦"],
+    ["fee-field", "บันทึกผล", "✓"],
+  ],
+  supervisor: [
+    ["super-home", "แดชบอร์ด", "⌂"],
+    ["super-complaints", "คำร้อง", "☷"],
+    ["super-reports", "รายงาน", "▤"],
+    ["stats", "สถิติ", "⌁"],
+    ["track", "ติดตามรถ", "🚛"],
+  ],
+  admin: [
+    ["admin-home", "บัญชีผู้ใช้", "👤"],
+    ["admin-add", "เพิ่มบัญชี", "＋"],
+    ["admin-roles", "บทบาทและสิทธิ์", "⚙"],
+  ],
+};
+function go(page) {
+  state.page = page;
+  window.scrollTo(0, 0);
+  render();
+}
+function roleGo(role) {
+  state.role = role;
+  if (role === "guest") go("home");
+  else go("login");
+}
+function login() {
+  const starts = {
+    collector: "staff-home",
+    counter: "counter-home",
+    accounting: "fee-dashboard",
+    supervisor: "super-home",
+    admin: "admin-home",
+  };
+  go(starts[state.role]);
+}
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2300);
+}
+function badge(text, tone = "green") {
+  return `<span class="badge ${tone}"><i class="dot"></i>${text}</span>`;
+}
+function pageHead(title, sub = "", actions = "") {
+  return `<header class="page-head"><div><h1>${title}</h1><p>${sub}</p></div>${actions ? `<div class="actions">${actions}</div>` : ""}</header>`;
+}
+function shell(content) {
+  const nav = navs[state.role] || [];
+  return `<div class="app-shell"><header class="topbar"><div class="brand"><span class="brand-mark">♻</span>WasteTrack</div><div class="top-actions"><button class="role-chip" onclick="go('roles')">${roles[state.role].icon} ${roles[state.role].label}</button><button class="btn btn-ghost" onclick="go('roles')">เปลี่ยนผู้ใช้</button></div></header><div class="layout"><aside class="sidebar"><div class="side-user"><strong>${roles[state.role].label}</strong><small>${state.role === "guest" ? "ใช้งานโดยไม่ต้องเข้าสู่ระบบ" : "องค์การบริหารส่วนตำบลแม่คะ"}</small></div><nav class="nav">${nav.map((n) => `<button class="${state.page === n[0] ? "active" : ""}" onclick="go('${n[0]}')"><span class="nav-icon">${n[2]}</span>${n[1]}</button>`).join("")}</nav></aside><main class="content">${content}</main></div><nav class="mobile-nav">${nav
+    .slice(0, 4)
+    .map(
+      (n) =>
+        `<button class="${state.page === n[0] ? "active" : ""}" onclick="go('${n[0]}')"><b>${n[2]}</b>${n[1]}</button>`,
+    )
+    .join("")}</nav></div>`;
+}
+function splash() {
+  return `<section class="splash"><div class="splash-card"><div class="logo-big">♻</div><h1>WasteTrack</h1><p>ระบบแจ้งเหตุและติดตามการจัดเก็บขยะ<br>องค์การบริหารส่วนตำบลแม่คะ</p><button class="btn" onclick="go('roles')">เริ่มต้นใช้งาน →</button></div></section>`;
+}
+function rolesPage() {
+  return `<section class="role-page"><div class="role-wrap"><header><div class="brand" style="justify-content:center"><span class="brand-mark">♻</span>WasteTrack</div><h1>คุณต้องการใช้งานในบทบาทใด</h1><p>เลือกประเภทผู้ใช้เพื่อเข้าสู่หน้าจอที่เกี่ยวข้อง</p></header><div class="grid grid-3">${Object.entries(
+    roles,
+  )
+    .map(
+      ([k, r]) =>
+        `<article class="role-card"><div class="metric-icon">${r.icon}</div><h3>${r.label}</h3><p>${k === "guest" ? "แจ้งปัญหา ติดตามรถและสถานะคำร้องได้ทันที" : "เข้าสู่ระบบเพื่อใช้งานตามสิทธิ์ของเจ้าหน้าที่"}</p><button class="btn ${k === "guest" ? "btn-primary" : "btn-secondary"}" onclick="roleGo('${k}')">${k === "guest" ? "เข้าใช้งาน" : "เข้าสู่ระบบ"}</button></article>`,
+    )
+    .join(
+      "",
+    )}</div><p style="text-align:center;margin-top:24px"><button class="btn btn-ghost" onclick="toast('เปิดคู่มือใช้งาน WasteTrack')">ⓘ คู่มือการใช้งาน</button></p></div></section>`;
+}
+function loginPage() {
+  return `<section class="login-page"><div class="login-art"><div class="brand"><span class="brand-mark" style="background:white;color:var(--brand)">♻</span>WasteTrack</div><h1>จัดการงานขยะ<br>จากข้อมูลเดียวกัน</h1><p>สำหรับ ${roles[state.role].label}<br>ติดตามงานและบันทึกผลได้อย่างเป็นระบบ</p></div><div class="login-panel"><div class="login-box"><button class="btn btn-ghost" onclick="go('roles')">← กลับ</button><h2>เข้าสู่ระบบ</h2><p>กรอกข้อมูลบัญชีเจ้าหน้าที่</p><div class="field"><label>เลขบัตรประจำตัวประชาชน</label><input value="1560300000000" maxlength="13"></div><div class="field"><label>รหัสผ่าน</label><input type="password" value="12345678"></div><button class="btn btn-primary" onclick="login()">เข้าสู่ระบบ</button><button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="toast('ส่งคำขอตั้งรหัสผ่านใหม่แล้ว')">ลืมรหัสผ่าน</button></div></div></section>`;
+}
+function citizenHome() {
+  return shell(
+    `${pageHead("สวัสดีค่ะ 👋", "วันนี้รถเก็บขยะให้บริการหมู่ที่ 4–6")}<div class="notice"><strong>กำหนดการค่าธรรมเนียมขยะ</strong><br>เจ้าหน้าที่จะเข้าจัดเก็บวันที่ 15 มกราคม 2570 ณ หมู่ที่ 5 <button class="btn btn-ghost" onclick="go('fee-me')">ดูรายละเอียด</button></div><div class="grid grid-2"><button class="card action-card" onclick="go('track')"><span class="metric-icon">🚛</span><strong>ติดตามรถเก็บขยะ</strong><small>ดูตำแหน่งรถและสถานะจุดจัดเก็บล่าสุด</small></button><button class="card action-card" onclick="go('complaint')"><span class="metric-icon">📝</span><strong>ยื่นคำร้อง</strong><small>แจ้งปัญหา แนบรูปภาพ และระบุตำแหน่ง</small></button><button class="card action-card" onclick="go('my-status')"><span class="metric-icon">◷</span><strong>ติดตามคำร้อง</strong><small>ตรวจสอบความคืบหน้าด้วยเลขอ้างอิง</small></button><button class="card action-card" onclick="go('fee-me')"><span class="metric-icon">📅</span><strong>สถานะค่าธรรมเนียม</strong><small>ดูกำหนดการและประวัติของครัวเรือนคุณ</small></button></div>${!state.noticeSeen ? feeModal() : ""}`,
+  );
+}
+function feeModal() {
+  return `<div class="modal-backdrop"><div class="modal"><div style="display:flex;justify-content:space-between"><span class="metric-icon">📅</span><button class="btn btn-ghost" onclick="state.noticeSeen=true;render()">✕</button></div><h2>แจ้งกำหนดการจัดเก็บค่าธรรมเนียมขยะ</h2><p>ประจำเดือนมกราคม 2570</p><div class="notice"><strong>15 มกราคม 2570</strong><br>หมู่ที่ 5 ตำบลแม่คะ<br>กรุณาเตรียมความพร้อมตามวันดังกล่าว</div><div class="actions"><button class="btn btn-primary" onclick="state.noticeSeen=true;toast('บันทึกการรับทราบแล้ว');render()">รับทราบ</button><button class="btn btn-outline" onclick="state.noticeSeen=true;go('fee-me')">ดูรายละเอียด</button></div></div></div>`;
+}
+function mapView() {
+  return shell(
+    `${pageHead("ติดตามรถเก็บขยะ", "ตำแหน่งปรับปรุงล่าสุด วันนี้ 10:42 น.")}<div class="grid grid-3"><div class="card" style="grid-column:span 2"><div class="map"><div class="road" style="width:70%;left:8%;top:35%;transform:rotate(12deg)"></div><div class="road" style="width:55%;left:25%;top:68%;transform:rotate(-18deg)"></div><div class="pin car" style="left:57%;top:39%"><span>🚛</span></div><div class="pin" style="left:25%;top:25%"><span>✓</span></div><div class="pin bad" style="left:74%;top:62%"><span>!</span></div><div class="map-card"><strong>รถเก็บขยะคันที่ 1</strong><small>กำลังปฏิบัติงานที่หมู่ 5 • ออนไลน์</small></div></div></div><aside class="card"><h3>ข้อมูลผู้ปฏิบัติงาน</h3><p><strong>นายสมชาย ใจดี</strong><br>พนักงานขับรถเก็บขยะ</p><p>☎ 08x-xxx-2456</p><hr style="border:0;border-top:1px solid var(--line)"><p><strong>สถานะจุด</strong></p><p>${badge("จัดเก็บแล้ว", "green")} ${badge("ไม่สามารถจัดเก็บได้", "red")}</p><small class="hint">รถให้บริการวันจันทร์–ศุกร์ ยกเว้นวันหยุดราชการ</small></aside></div>`,
+  );
+}
+function complaintForm() {
+  return shell(
+    `${pageHead("ยื่นคำร้องเกี่ยวกับขยะ", "กรอกข้อมูลให้ครบถ้วนเพื่อส่งให้เจ้าหน้าที่ตรวจสอบ")}<form class="card" onsubmit="event.preventDefault();saveComplaint();go('complaint-review')"><div class="form-grid"><div class="field"><label>ชื่อ–นามสกุลผู้ร้อง</label><input id="f-name" required value="${state.complaint.name}" placeholder="เช่น กชพร วงศใหญ่"></div><div class="field"><label>อายุ</label><input id="f-age" type="number" min="1" max="120" value="${state.complaint.age}" placeholder="อายุ"></div><div class="field span-2"><label>ที่อยู่</label><input id="f-address" required value="${state.complaint.address}" placeholder="บ้านเลขที่ หมู่ ตำบล"></div><div class="field"><label>ประเภทปัญหา</label><select id="f-type"><option>ก่อความรำคาญ</option><option>ขอถังใหม่</option><option>ถังชำรุด</option></select></div><div class="field"><label>รูปภาพประกอบ</label><input id="f-image" type="file" accept="image/*"><span class="hint">รองรับ JPG หรือ PNG</span></div><div class="field span-2"><label>รายละเอียดความเดือดร้อน</label><textarea id="f-detail" required placeholder="อธิบายปัญหา จุดสังเกต และช่วงเวลาที่พบ">${state.complaint.detail}</textarea></div><div class="field span-2"><label>ตำแหน่งที่เกิดเหตุ</label><div class="map" style="min-height:230px"><div class="pin bad" style="left:48%;top:38%"><span>!</span></div><div class="map-card"><strong>${state.complaint.location}</strong><small>ลากหมุดเพื่อปรับตำแหน่ง</small></div></div><button type="button" class="btn btn-secondary" onclick="toast('ใช้ตำแหน่งปัจจุบันแล้ว')">⌖ ใช้ตำแหน่งปัจจุบัน</button></div></div><div class="actions" style="justify-content:flex-end;margin-top:20px"><button type="button" class="btn btn-ghost" onclick="go('home')">ยกเลิก</button><button class="btn btn-primary">ตรวจสอบข้อมูล →</button></div></form>`,
+  );
+}
+function saveComplaint() {
+  state.complaint.name = document.getElementById("f-name").value;
+  state.complaint.age = document.getElementById("f-age").value;
+  state.complaint.address = document.getElementById("f-address").value;
+  state.complaint.type = document.getElementById("f-type").value;
+  state.complaint.detail =
+    document.getElementById("f-detail").value || "มีขยะสะสมและส่งกลิ่นรบกวน";
+  state.complaint.image = "แนบรูปภาพแล้ว";
+}
+function complaintReview() {
+  const c = state.complaint;
+  return shell(
+    `${pageHead("ยืนยันข้อมูลคำร้อง", "ตรวจสอบรายละเอียดก่อนส่งคำร้อง")}<div class="grid grid-3"><section class="card" style="grid-column:span 2"><h3>ข้อมูลผู้ร้อง</h3><table class="table"><tr><th>ชื่อผู้ร้อง</th><td>${c.name || "กชพร วงศใหญ่"}</td></tr><tr><th>อายุ</th><td>${c.age || "22"} ปี</td></tr><tr><th>ที่อยู่</th><td>${c.address || "52 หมู่ 5 ตำบลแม่คะ"}</td></tr><tr><th>ประเภท</th><td>${badge(c.type, "amber")}</td></tr><tr><th>รายละเอียด</th><td>${c.detail || "มีขยะสะสมและส่งกลิ่นรบกวน"}</td></tr><tr><th>ตำแหน่ง</th><td>${c.location}</td></tr></table><label style="display:flex;gap:10px;margin-top:22px"><input type="checkbox" id="confirm"> ข้าพเจ้าตรวจสอบแล้วว่าข้อมูลข้างต้นครบถ้วนและถูกต้อง</label><div class="actions" style="margin-top:20px"><button class="btn btn-outline" onclick="go('complaint')">← แก้ไขข้อมูล</button><button class="btn btn-primary" onclick="if(document.getElementById('confirm').checked)go('complaint-pdf');else toast('กรุณาติ๊กยืนยันข้อมูลก่อน')">ยืนยันและส่งคำร้อง</button></div></section><aside class="card"><div class="thumb" style="width:100%;height:170px">🗑️</div><h3 style="margin-top:14px">รูปภาพประกอบ</h3><p>ตำแหน่ง: ${c.location}</p></aside></div>`,
+  );
+}
+function complaintPdf() {
+  return shell(
+    `${pageHead("ส่งคำร้องสำเร็จ", "เลขอ้างอิง WT-2569-0148")}<div class="notice">✓ ระบบรับคำร้องแล้ว กรุณาเก็บเลขอ้างอิงหรือไฟล์สรุปไว้เพื่อติดตามผล</div><div class="pdf"><h2>แบบคำร้องเกี่ยวกับการจัดการขยะ</h2><p style="text-align:center">องค์การบริหารส่วนตำบลแม่คะ อำเภอฝาง จังหวัดเชียงใหม่</p><hr><p>เลขที่คำร้อง <span class="pdf-line">WT-2569-0148</span></p><p>ชื่อผู้ร้อง <span class="pdf-line">${state.complaint.name || "กชพร วงศใหญ่"}</span> อายุ <span class="pdf-line">${state.complaint.age || "22"} ปี</span></p><p>ที่อยู่ <span class="pdf-line">${state.complaint.address || "52 หมู่ 5 ตำบลแม่คะ"}</span></p><p>ประเภทคำร้อง <span class="pdf-line">${state.complaint.type}</span></p><p>รายละเอียด <span class="pdf-line">${state.complaint.detail || "มีขยะสะสมและส่งกลิ่นรบกวน"}</span></p><p>ตำแหน่ง <span class="pdf-line">${state.complaint.location}</span></p><br><p style="text-align:right">ยื่นคำร้องวันที่ 22 ตุลาคม 2569</p></div><div class="actions" style="justify-content:center;margin-top:24px"><button class="btn btn-primary" onclick="window.print()">⇩ บันทึกเป็น PDF</button><button class="btn btn-secondary" onclick="go('my-status')">ติดตามสถานะคำร้อง</button></div>`,
+  );
+}
+function myStatus() {
+  return shell(
+    `${pageHead("ติดตามคำร้อง", "กรอกเลขอ้างอิงเพื่อตรวจสอบความคืบหน้า")}<div class="card"><div class="toolbar"><input class="search" value="WT-2569-0148"><button class="btn btn-primary" onclick="toast('พบข้อมูลคำร้อง')">ค้นหา</button></div><div class="grid grid-2"><div><h3>คำร้อง WT-2569-0148</h3><p>${state.complaint.type} • หมู่ที่ 5</p>${badge("มอบหมายเจ้าหน้าที่แล้ว", "blue")}</div><div class="timeline"><div class="timeline-item"><strong>รับคำร้องแล้ว</strong><small>22 ต.ค. 2569 • 11:25</small></div><div class="timeline-item"><strong>หัวหน้าฝ่ายอนุมัติคำร้อง</strong><small>22 ต.ค. 2569 • 13:10</small></div><div class="timeline-item"><strong>มอบหมายพนักงานแล้ว</strong><small>นายสมชาย ใจดี • รอดำเนินการ</small></div></div></div></div>`,
+  );
+}
+function feeMe() {
+  return shell(
+    `${pageHead("ค่าธรรมเนียมครัวเรือนของฉัน", "ข้อมูลเฉพาะบ้านเลขที่ 52 หมู่ 5")}<div class="grid grid-3"><div class="card"><h3>รอบปัจจุบัน</h3><strong style="font-size:1.4rem">มกราคม 2570</strong><p>วันที่เข้าจัดเก็บ 15 มกราคม 2570</p>${badge("นัดหมายแล้ว", "amber")}</div><div class="card" style="grid-column:span 2"><h3>ประวัติการจัดเก็บ</h3><table class="table"><tr><th>รอบ</th><th>วันที่</th><th>สถานะ</th></tr><tr><td>ธันวาคม 2569</td><td>16 ธ.ค. 2569</td><td>${badge("จัดเก็บแล้ว", "green")}</td></tr><tr><td>พฤศจิกายน 2569</td><td>15 พ.ย. 2569</td><td>${badge("จัดเก็บแล้ว", "green")}</td></tr></table></div></div>`,
+  );
+}
+function staffHome() {
+  return shell(
+    `${pageHead("งานวันนี้", "22 ตุลาคม 2569 • รถคันที่ 1")}<div class="grid grid-3"><div class="card metric"><div><span class="hint">คำร้องที่ได้รับ</span><strong>8</strong></div><span class="metric-icon">☷</span></div><div class="card metric"><div><span class="hint">จุดจัดเก็บทั้งหมด</span><strong>24</strong></div><span class="metric-icon">⌖</span></div><div class="card metric"><div><span class="hint">ดำเนินการแล้ว</span><strong>15</strong></div><span class="metric-icon">✓</span></div></div><div class="grid grid-2" style="margin-top:18px"><button class="card action-card" onclick="go('assigned')"><span class="metric-icon">📝</span><strong>คำร้องที่ได้รับมอบหมาย</strong><small>ดูรายละเอียดและตำแหน่งหน้างาน</small></button><button class="card action-card" onclick="go('route')"><span class="metric-icon">🗺️</span><strong>เริ่มโหมดปฏิบัติงาน</strong><small>เปิด GPS และดูเส้นทางแนะนำ</small></button></div>`,
+  );
+}
+function itemList(items, detailPage) {
+  return `<div class="list">${items.map((x) => `<article class="list-item"><div class="thumb">${x.icon}</div><div><h3>${x.title}</h3><p>${x.id} • ${x.village} • ${x.date}</p><div class="meta">${x.type ? badge(x.type, "blue") : ""}${badge(x.status, x.tone)}</div></div><button class="btn btn-secondary" onclick="go('${detailPage}')">ดูรายละเอียด</button></article>`).join("")}</div>`;
+}
+function assigned() {
+  return shell(
+    `${pageHead("คำร้องที่ได้รับมอบหมาย", "เลือกคำร้องเพื่อดูรายละเอียดและตำแหน่ง")}<div class="toolbar"><input class="search" placeholder="ค้นหาเลขคำร้องหรือสถานที่"><select class="filter"><option>ทุกหมู่บ้าน</option><option>หมู่ 1</option><option>หมู่ 5</option></select><select class="filter"><option>ทุกประเภท</option><option>ก่อความรำคาญ</option><option>ขอถังใหม่</option></select></div>${itemList(complaints, "complaint-detail")}`,
+  );
+}
+function complaintDetail() {
+  return shell(
+    `${pageHead("รายละเอียดคำร้อง WT-2569-0142", "ก่อความรำคาญ • หมู่ 5", `<button class="btn btn-primary" onclick="go('staff-report')">รายงานผล</button>`)}<div class="grid grid-2"><div class="card"><div class="thumb" style="width:100%;height:250px">🗑️</div><h3 style="margin-top:16px">กลิ่นขยะสะสมบริเวณริมทาง</h3><p>พบขยะจำนวนมากบริเวณถนนทางเข้าหมู่บ้าน ส่งกลิ่นรบกวนและมีสัตว์คุ้ยเขี่ย</p><table class="table"><tr><th>ผู้แจ้ง</th><td>ประชาชน หมู่ 5</td></tr><tr><th>วันที่รับแจ้ง</th><td>22 ต.ค. 2569</td></tr><tr><th>สถานะ</th><td>${badge("รอดำเนินการ", "amber")}</td></tr></table></div><div class="map"><div class="pin bad" style="left:52%;top:38%"><span>!</span></div><div class="map-card"><strong>จุดเกิดเหตุ</strong><small>ริมถนนทางเข้าหมู่ 5</small></div></div></div>`,
+  );
+}
+function routePage() {
+  return shell(
+    `${pageHead("เส้นทางแนะนำ", "GPS พร้อมใช้งาน • จุดถัดไปห่าง 850 เมตร", `<button class="btn btn-primary" onclick="go('checkpoint')">ยืนยันเมื่อถึงจุด</button>`)}<div class="grid grid-3"><div class="card" style="grid-column:span 2"><div class="map"><div class="road" style="width:76%;left:8%;top:56%;transform:rotate(-8deg)"></div><div class="pin car" style="left:30%;top:53%"><span>🚛</span></div><div class="pin" style="left:65%;top:34%"><span>1</span></div><div class="pin" style="left:75%;top:62%"><span>2</span></div><div class="map-card"><strong>จุดถัดไป: ตลาดบ้านแม่คะ</strong><small>เส้นทางนี้เป็นคำแนะนำตามข้อมูลจุดจัดเก็บ</small></div></div></div><aside class="card"><h3>ลำดับจุด</h3><div class="timeline"><div class="timeline-item"><strong>ตลาดบ้านแม่คะ</strong><small>850 เมตร • รอดำเนินการ</small></div><div class="timeline-item"><strong>โรงเรียนบ้านแม่คะ</strong><small>1.7 กม. • รอดำเนินการ</small></div><div class="timeline-item"><strong>ศาลาประชาคม</strong><small>2.4 กม. • รอดำเนินการ</small></div></div></aside></div>`,
+  );
+}
+function checkpoint() {
+  return shell(
+    `${pageHead("ยืนยันผลการจัดเก็บ", "คุณอยู่ภายในพื้นที่จุดจัดเก็บ")}<div class="card" style="max-width:680px;margin:auto"><div class="metric-icon">⌖</div><h2>ตลาดบ้านแม่คะ</h2><p>ระบบตรวจพบว่าอุปกรณ์อยู่ภายใน Geofence กรุณายืนยันผลการปฏิบัติงาน</p><div class="grid grid-2"><button class="card action-card" onclick="toast('บันทึกว่า จัดเก็บแล้ว');go('route')"><span class="metric-icon">✓</span><strong>จัดเก็บแล้ว</strong><small>เปลี่ยนหมุดจุดนี้เป็นสีเขียว</small></button><button class="card action-card" onclick="go('staff-report')"><span class="metric-icon" style="background:var(--dangerbg);color:var(--danger)">!</span><strong>ไม่สามารถจัดเก็บได้</strong><small>ต้องระบุเหตุผลและแนบหลักฐาน</small></button></div><p class="hint">ตำแหน่ง GPS ใช้เปิดขั้นตอนยืนยัน ระบบจะไม่เปลี่ยนสถานะอัตโนมัติ</p></div>`,
+  );
+}
+function staffReport() {
+  return shell(
+    `${pageHead("ส่งรายงานผลการปฏิบัติงาน", "คำร้อง WT-2569-0142")}<form class="card" onsubmit="event.preventDefault();toast('ส่งรายงานให้หัวหน้าฝ่ายแล้ว');go('staff-home')"><div class="form-grid"><div class="field"><label>ผลการปฏิบัติงาน</label><select required><option>จัดเก็บแล้ว</option><option>ไม่สามารถจัดเก็บได้</option></select></div><div class="field"><label>รูปถ่ายหน้างาน</label><input type="file" required accept="image/*"></div><div class="field span-2"><label>หมายเหตุ / เหตุผล</label><textarea placeholder="เช่น มีขยะชิ้นใหญ่หรือรถจอดขวาง"></textarea></div><div class="field span-2"><label>ตำแหน่งจริง</label><div class="map" style="min-height:240px"><div class="pin car" style="left:48%;top:38%"><span>🚛</span></div><div class="map-card"><strong>ตำแหน่งจาก GPS</strong><small>บันทึกเมื่อ 10:42 น.</small></div></div></div></div><div class="actions" style="justify-content:flex-end;margin-top:18px"><button class="btn btn-primary">ส่งรายงาน</button></div></form>`,
+  );
+}
+function counterHome() {
+  return shell(
+    `${pageHead("รายการคำร้อง", "คำร้องที่เจ้าหน้าที่หน้าเคาน์เตอร์สามารถค้นหาและให้ข้อมูล", `<button class="btn btn-primary" onclick="go('counter-create')">＋ บันทึกคำร้องแทน</button>`)}<div class="toolbar"><input class="search" placeholder="ค้นหาเลขคำร้อง ชื่อ หรือหมู่บ้าน"><select class="filter"><option>ทุกสถานะ</option><option>รอตรวจสอบ</option><option>มอบหมายแล้ว</option></select></div>${itemList(complaints, "complaint-detail")}`,
+  );
+}
+function counterCreate() {
+  return shell(
+    `${pageHead("บันทึกคำร้องแทนประชาชน", "สำหรับผู้ที่ไม่สะดวกใช้งานแอปพลิเคชัน")}<div class="notice">คำร้องนี้จะระบุแหล่งที่มาว่า “เจ้าหน้าที่หน้าเคาน์เตอร์บันทึกแทน”</div>${complaintForm()
+      .replace(/^.*?<main class="content">/s, "")
+      .replace(/<\/main>.*$/s, "")
+      .replace(
+        "go('complaint-review')",
+        "toast('บันทึกคำร้องแทนประชาชนแล้ว');go('counter-home')",
+      )}`,
+  );
+}
+function feeDashboard() {
+  return shell(
+    `${pageHead("ภาพรวมการจัดเก็บค่าธรรมเนียม", "รอบเดือนมกราคม 2570", `<button class="btn btn-primary" onclick="go('fee-create')">＋ สร้างรอบใหม่</button>`)}<div class="grid grid-4"><div class="card metric"><div><span class="hint">ครัวเรือนทั้งหมด</span><strong>120</strong></div></div><div class="card metric"><div><span class="hint">จัดเก็บแล้ว</span><strong>74</strong></div></div><div class="card metric"><div><span class="hint">ไม่พบผู้อยู่อาศัย</span><strong>9</strong></div></div><div class="card metric"><div><span class="hint">ค้างดำเนินการ</span><strong>6</strong></div></div><div class="card" style="grid-column:1/-1"><div style="display:flex;justify-content:space-between"><strong>ความคืบหน้ารอบปัจจุบัน</strong><span>62%</span></div><div class="progress" style="margin-top:12px"><span style="width:62%"></span></div></div></div><div class="card" style="margin-top:18px"><h3>รายการครัวเรือน</h3>${feeTable()}</div>`,
+  );
+}
+function feeTable() {
+  return `<div class="table-wrap"><table class="table"><thead><tr><th>ครัวเรือน</th><th>พื้นที่</th><th>สถานะ</th><th></th></tr></thead><tbody>${feeRows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${badge(r[2], r[3])}</td><td><button class="btn btn-secondary" onclick="go('fee-house')">บันทึกผล</button></td></tr>`).join("")}</tbody></table></div>`;
+}
+function feeRounds() {
+  return shell(
+    `${pageHead("รอบจัดเก็บค่าธรรมเนียม", "จัดการกำหนดการรายเดือน", `<button class="btn btn-primary" onclick="go('fee-create')">＋ สร้างรอบ</button>`)}<div class="list"><article class="list-item"><div class="thumb">📅</div><div><h3>รอบมกราคม 2570</h3><p>15 มกราคม • หมู่ 5 • 120 ครัวเรือน</p><div class="meta">${badge("ประกาศแล้ว", "green")}</div></div><button class="btn btn-secondary" onclick="go('fee-dashboard')">เปิดรอบ</button></article><article class="list-item"><div class="thumb">📅</div><div><h3>รอบกุมภาพันธ์ 2570</h3><p>ยังไม่กำหนดวัน • 0 ครัวเรือน</p><div class="meta">${badge("ร่าง", "amber")}</div></div><button class="btn btn-secondary" onclick="go('fee-create')">แก้ไข</button></article></div>`,
+  );
+}
+function feeCreate() {
+  return shell(
+    `${pageHead("สร้างรอบจัดเก็บค่าธรรมเนียม", "กำหนดวัน พื้นที่ และครัวเรือน")}<form class="card" onsubmit="event.preventDefault();go('fee-publish')"><div class="form-grid"><div class="field"><label>เดือน</label><select><option>กุมภาพันธ์</option></select></div><div class="field"><label>ปี พ.ศ.</label><input value="2570"></div><div class="field"><label>วันที่เข้าจัดเก็บ</label><input type="date" value="2027-02-15"></div><div class="field"><label>หมู่บ้าน/พื้นที่</label><select><option>หมู่ที่ 6</option><option>หมู่ที่ 7</option></select></div><div class="field span-2"><label>เลือกครัวเรือน</label><div class="card"><label><input type="checkbox" checked> เลือกทุกครัวเรือนในหมู่ที่ 6 (98 หลัง)</label><hr style="border:0;border-top:1px solid var(--line)"><label><input type="checkbox" checked> บ้านเลขที่ 12</label><br><label><input type="checkbox" checked> บ้านเลขที่ 14</label><br><label><input type="checkbox" checked> บ้านเลขที่ 18</label></div></div></div><div class="actions" style="justify-content:flex-end;margin-top:18px"><button class="btn btn-primary">ตรวจสอบก่อนประกาศ →</button></div></form>`,
+  );
+}
+function feePublish() {
+  return shell(
+    `${pageHead("ตรวจสอบและประกาศกำหนดการ", "รอบกุมภาพันธ์ 2570")}<div class="grid grid-2"><section class="card"><h3>ข้อมูลรอบ</h3><table class="table"><tr><th>วันที่</th><td>15 กุมภาพันธ์ 2570</td></tr><tr><th>พื้นที่</th><td>หมู่ที่ 6</td></tr><tr><th>ผู้รับแจ้ง</th><td>98 ครัวเรือน</td></tr></table></section><section class="card"><h3>ตัวอย่างป๊อปอัปประชาชน</h3><div class="notice"><strong>แจ้งกำหนดการจัดเก็บค่าธรรมเนียมขยะ</strong><br>เจ้าหน้าที่จะเข้าจัดเก็บวันที่ 15 กุมภาพันธ์ 2570 ณ หมู่ที่ 6 กรุณาเตรียมความพร้อม</div></section></div><div class="actions" style="justify-content:flex-end;margin-top:18px"><button class="btn btn-outline" onclick="go('fee-create')">แก้ไข</button><button class="btn btn-primary" onclick="toast('ประกาศกำหนดการแล้ว');go('fee-rounds')">ยืนยันประกาศ</button></div>`,
+  );
+}
+function feeCalendar() {
+  return shell(
+    `${pageHead("ปฏิทินกำหนดการ", "มกราคม 2570")}<div class="card"><div class="grid grid-4">${Array.from({ length: 28 }, (_, i) => `<div class="card" style="min-height:92px;padding:12px"><strong>${i + 1}</strong>${i === 14 ? '<div class="badge green" style="margin-top:8px">หมู่ 5 • 120 หลัง</div>' : ""}${i === 21 ? '<div class="badge amber" style="margin-top:8px">นัดหมายใหม่</div>' : ""}</div>`).join("")}</div></div>`,
+  );
+}
+function feeHouse() {
+  return shell(
+    `${pageHead("บันทึกผลครัวเรือน", "บ้านเลขที่ 61 หมู่ 5")}<div class="grid grid-2"><section class="card"><h3>สถานะปัจจุบัน</h3>${badge("ไม่พบผู้อยู่อาศัย", "red")}<p>เข้าพื้นที่เมื่อ 15 ม.ค. 2570 เวลา 13:45 น.</p><div class="field"><label>เปลี่ยนสถานะ</label><select><option>นัดหมายใหม่</option><option>จัดเก็บแล้ว</option><option>ค้างดำเนินการ</option></select></div><div class="field" style="margin-top:14px"><label>วันนัดหมายใหม่</label><input type="date" value="2027-01-22"></div><button class="btn btn-primary" style="margin-top:18px" onclick="toast('บันทึกสถานะและสร้างการแจ้งเตือนใหม่แล้ว');go('fee-dashboard')">บันทึกสถานะ</button></section><section class="card"><h3>ประวัติการเปลี่ยนสถานะ</h3><div class="timeline"><div class="timeline-item"><strong>ไม่พบผู้อยู่อาศัย</strong><small>15 ม.ค. 2570 13:45 • นางสาวสุภาวดี</small></div><div class="timeline-item"><strong>รอดำเนินการ</strong><small>15 ม.ค. 2570 08:00 • ระบบ</small></div><div class="timeline-item"><strong>นัดหมายแล้ว</strong><small>5 ม.ค. 2570 10:12 • นางสาวสุภาวดี</small></div></div></section></div>`,
+  );
+}
+function superHome() {
+  return shell(
+    `${pageHead("แดชบอร์ดภาพรวม", "ข้อมูล ณ วันที่ 22 ตุลาคม 2569")}<div class="grid grid-4"><div class="card metric"><div><span class="hint">คำร้องวันนี้</span><strong>12</strong></div><span class="metric-icon">📝</span></div><div class="card metric"><div><span class="hint">รายงานวันนี้</span><strong>9</strong></div><span class="metric-icon">📷</span></div><div class="card metric"><div><span class="hint">รถที่ปฏิบัติงาน</span><strong>3</strong></div><span class="metric-icon">🚛</span></div><div class="card metric"><div><span class="hint">จุดเสร็จแล้ว</span><strong>45</strong></div><span class="metric-icon">✓</span></div></div><div class="grid grid-2" style="margin-top:18px"><div class="card"><h3>คำร้องล่าสุด</h3>${itemList(complaints.slice(0, 2), "super-complaint-detail")}</div><div class="card"><h3>รายงานล่าสุด</h3>${itemList(reports.slice(0, 2), "report-detail")}</div></div>`,
+  );
+}
+function superComplaints() {
+  return shell(
+    `${pageHead("คำร้องจากประชาชน", "ตรวจสอบและมอบหมายงาน")}<div class="toolbar"><input class="search" placeholder="ค้นหา"><select class="filter"><option>ทุกสถานะ</option></select></div>${itemList(complaints, "super-complaint-detail")}`,
+  );
+}
+function superComplaintDetail() {
+  return shell(
+    `${pageHead("ตรวจสอบคำร้อง WT-2569-0142", "รอหัวหน้าฝ่ายพิจารณา")}<div class="grid grid-2"><section class="card"><div class="thumb" style="width:100%;height:220px">🗑️</div><h3 style="margin-top:16px">กลิ่นขยะสะสมบริเวณริมทาง</h3><p>พบขยะจำนวนมากบริเวณถนนทางเข้าหมู่บ้าน ส่งกลิ่นรบกวน</p><button class="btn btn-secondary" onclick="toast('เปิดไฟล์ PDF คำร้อง')">▧ เปิด PDF คำร้อง</button></section><section class="map"><div class="pin bad" style="left:52%;top:38%"><span>!</span></div></section></div><div class="card" style="margin-top:18px"><div class="field"><label>มอบหมายให้พนักงาน</label><select><option>นายสมชาย ใจดี — รถคันที่ 1</option><option>นายอนันต์ มีสุข — รถคันที่ 2</option></select></div><div class="actions" style="justify-content:flex-end;margin-top:18px"><button class="btn btn-danger" onclick="toast('ยกเลิกคำร้องแล้ว');go('super-complaints')">ยกเลิกคำร้อง</button><button class="btn btn-primary" onclick="toast('อนุมัติและมอบหมายงานแล้ว');go('super-complaints')">ยืนยันและมอบหมาย</button></div></div>`,
+  );
+}
+function superReports() {
+  return shell(
+    `${pageHead("รายงานจากพนักงาน", "ตรวจสอบผลการปฏิบัติงาน")}<div class="toolbar"><input class="search" placeholder="ค้นหารายงาน"><select class="filter"><option>ทุกหมู่บ้าน</option></select></div>${itemList(reports, "report-detail")}`,
+  );
+}
+function reportDetail() {
+  return shell(
+    `${pageHead("รายละเอียดรายงาน RP-0881", "ส่งวันนี้ 10:42 น.")}<div class="grid grid-2"><section class="card"><div class="thumb" style="width:100%;height:250px">📷</div><h3 style="margin-top:16px">จัดเก็บขยะบริเวณตลาดแล้ว</h3><table class="table"><tr><th>ผู้รายงาน</th><td>นายสมชาย ใจดี</td></tr><tr><th>หมายเหตุ</th><td>เก็บขยะและทำความสะอาดพื้นที่แล้ว</td></tr><tr><th>สถานะ</th><td>${badge("รอตรวจสอบ", "amber")}</td></tr></table></section><section class="map"><div class="pin" style="left:52%;top:38%"><span>✓</span></div><div class="map-card"><strong>ตลาดบ้านแม่คะ</strong><small>ตำแหน่งจากรายงาน</small></div></section></div>`,
+  );
+}
+function stats() {
+  return shell(
+    `${pageHead("สถิติคำร้องและรายงาน", "เปรียบเทียบข้อมูลแยกตามหมู่บ้าน")}<div class="toolbar"><button class="btn btn-primary">คำร้องประชาชน</button><button class="btn btn-secondary" onclick="toast('เปลี่ยนเป็นสถิติรายงานพนักงาน')">รายงานพนักงาน</button><select class="filter"><option>30 วันล่าสุด</option><option>วันนี้</option><option>7 วันล่าสุด</option><option>1 ปี</option><option>เลือกเดือน</option><option>เลือกช่วงวันที่</option></select></div><div class="card"><h3>จำนวนรายการรายหมู่บ้าน</h3><div class="chart">${[65, 42, 78, 54, 88, 60].map((h, i) => `<div class="chart-group"><div class="bar" style="height:${h}%"></div><div class="bar alt" style="height:${Math.max(20, h - 22)}%"></div><span class="bar-label">หมู่ ${i + 1}</span></div>`).join("")}</div><div class="legend"><span><i style="background:var(--brand)"></i>คำร้อง</span><span><i style="background:var(--brand2)"></i>ดำเนินการแล้ว</span></div></div><div class="card" style="margin-top:18px"><h3>รายการในช่วงเวลาที่เลือก</h3>${itemList(complaints, "super-complaint-detail")}</div>`,
+  );
+}
+function adminHome() {
+  const users = [
+    ["นายสมชาย ใจดี", "พนักงานเก็บขยะ", "ใช้งานอยู่", "green"],
+    ["นางสาวสุภาวดี มั่นคง", "เจ้าหน้าที่ฝ่ายบัญชี", "ใช้งานอยู่", "green"],
+    ["นายสมพงษ์ พรชัย", "หัวหน้าฝ่าย", "ใช้งานอยู่", "green"],
+    ["นายอนันต์ มีสุข", "พนักงานเก็บขยะ", "ระงับชั่วคราว", "red"],
+  ];
+  return shell(
+    `${pageHead("จัดการบัญชีผู้ใช้", "เพิ่ม แก้ไข และระงับบัญชีตามสิทธิ์", `<button class="btn btn-primary" onclick="go('admin-add')">＋ เพิ่มบัญชี</button>`)}<div class="toolbar"><input class="search" placeholder="ค้นหาชื่อหรือเลขบัตร"><select class="filter"><option>ทุกบทบาท</option></select></div><div class="card table-wrap"><table class="table"><tr><th>ชื่อผู้ใช้</th><th>บทบาท</th><th>สถานะ</th><th></th></tr>${users.map((u) => `<tr><td>${u[0]}</td><td>${u[1]}</td><td>${badge(u[2], u[3])}</td><td><button class="btn btn-secondary" onclick="toast('เปิดข้อมูลบัญชี')">แก้ไข</button></td></tr>`).join("")}</table></div>`,
+  );
+}
+function adminAdd() {
+  return shell(
+    `${pageHead("เพิ่มบัญชีผู้ใช้", "กำหนดข้อมูลและบทบาทให้ตรงกับหน้าที่")}<form class="card" onsubmit="event.preventDefault();toast('เพิ่มบัญชีผู้ใช้แล้ว');go('admin-home')"><div class="form-grid"><div class="field"><label>ชื่อ–นามสกุล</label><input required></div><div class="field"><label>เลขบัตรประชาชน</label><input maxlength="13" required></div><div class="field"><label>บทบาท</label><select><option>พนักงานเก็บขยะ</option><option>เจ้าหน้าที่หน้าเคาน์เตอร์</option><option>เจ้าหน้าที่ฝ่ายบัญชี</option><option>หัวหน้าฝ่าย</option></select></div><div class="field"><label>สถานะบัญชี</label><select><option>ใช้งานอยู่</option><option>ระงับชั่วคราว</option></select></div></div><button class="btn btn-primary" style="margin-top:18px">บันทึกบัญชี</button></form>`,
+  );
+}
+function adminRoles() {
+  return shell(
+    `${pageHead("บทบาทและสิทธิ์", "ตรวจสอบขอบเขตการเข้าถึงของผู้ใช้งาน")}<div class="card table-wrap"><table class="table"><tr><th>บทบาท</th><th>คำร้อง</th><th>รถ/จุดเก็บ</th><th>ค่าธรรมเนียม</th><th>ผู้ใช้</th></tr><tr><td>ประชาชน</td><td>สร้าง/ดูของตน</td><td>ดู</td><td>ดูของตน</td><td>—</td></tr><tr><td>พนักงานเก็บขยะ</td><td>ดูที่ได้รับ</td><td>ปฏิบัติงาน</td><td>—</td><td>—</td></tr><tr><td>หน้าเคาน์เตอร์</td><td>บันทึกแทน</td><td>—</td><td>—</td><td>—</td></tr><tr><td>ฝ่ายบัญชี</td><td>—</td><td>—</td><td>จัดการรอบ/สถานะ</td><td>—</td></tr><tr><td>หัวหน้าฝ่าย</td><td>จัดการ/มอบหมาย</td><td>ติดตาม</td><td>ดูสรุป</td><td>—</td></tr><tr><td>ผู้ดูแลระบบ</td><td>—</td><td>—</td><td>—</td><td>จัดการ</td></tr></table></div>`,
+  );
+}
+function render() {
+  const pages = {
+    splash,
+    roles: rolesPage,
+    login: loginPage,
+    home: citizenHome,
+    track: mapView,
+    complaint: complaintForm,
+    "complaint-review": complaintReview,
+    "complaint-pdf": complaintPdf,
+    "my-status": myStatus,
+    "fee-me": feeMe,
+    "staff-home": staffHome,
+    assigned,
+    "complaint-detail": complaintDetail,
+    route: routePage,
+    checkpoint,
+    "staff-report": staffReport,
+    "counter-home": counterHome,
+    "counter-create": counterCreate,
+    "counter-search": counterHome,
+    "fee-dashboard": feeDashboard,
+    "fee-rounds": feeRounds,
+    "fee-create": feeCreate,
+    "fee-publish": feePublish,
+    "fee-calendar": feeCalendar,
+    "fee-field": feeDashboard,
+    "fee-house": feeHouse,
+    "super-home": superHome,
+    "super-complaints": superComplaints,
+    "super-complaint-detail": superComplaintDetail,
+    "super-reports": superReports,
+    "report-detail": reportDetail,
+    stats,
+    "admin-home": adminHome,
+    "admin-add": adminAdd,
+    "admin-roles": adminRoles,
+  };
+  app.innerHTML = (pages[state.page] || splash)();
+}
+render();
